@@ -6,7 +6,7 @@ import { BRAND, ORDER_NOTE } from './config'
 import { useCart, cartSubtotal, cartCount, buildWhatsAppMessage } from './store/cart'
 import GameCard from './components/GameCard'
 import ContactPage from './components/ContactPage'
-import LegalPage from './components/LegalPage'
+import LegalPage, { type LegalTab } from './components/LegalPage'
 import DepthCarousel from './components/DepthCarousel'
 import FlexCarousel from './components/FlexCarousel'
 import BookTableModal from './components/BookTable'
@@ -67,6 +67,8 @@ export default function App() {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [subscribed, setSubscribed] = useState(false)
   const [view, setView] = useState<'home' | 'contact' | 'legal'>('home')
+  const [legalTab, setLegalTab] = useState<LegalTab>('privacy')
+  const goLegal = (tab: LegalTab) => { setLegalTab(tab); setView('legal') }
   const goHome = (id?: string) => {
     setView('home')
     if (id) setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }), 50)
@@ -233,12 +235,12 @@ export default function App() {
           generic layout idea is reused: letterspaced headings,
           bottom copyright + pill form. */}
       </>) : view === 'contact' ? (
-        <ContactPage onHome={() => goHome()} onLegal={() => setView('legal')} onBook={() => setBookOpen(true)} />
+        <ContactPage onHome={() => goHome()} onLegal={() => goLegal('privacy')} onBook={() => setBookOpen(true)} />
       ) : (
-        <LegalPage onHome={() => goHome()} onContact={() => setView('contact')} />
+        <LegalPage key={legalTab} onHome={() => goHome()} onContact={() => setView('contact')} onMenu={() => goHome('menu')} initialTab={legalTab} />
       )}
       <footer className="bg-cream text-ink border-t border-orange-100 mt-4 pb-24 md:pb-8">
-        <div className="max-w-7xl mx-auto px-4 py-12 grid gap-10 md:grid-cols-4">
+        <div className="max-w-7xl mx-auto px-4 py-12 grid gap-10 md:grid-cols-3">
           <div>
             <p className="flex items-center gap-3">
               <span className="w-11 h-11 rounded-full bg-saffron text-white grid place-items-center font-bold text-xl">Z</span>
@@ -252,14 +254,11 @@ export default function App() {
               <li><button onClick={() => goHome('top')} className="hover:text-saffron">Home</button></li>
               <li><button onClick={() => goHome('menu')} className="hover:text-saffron">Menu</button></li>
               <li><button onClick={() => goHome('visit')} className="hover:text-saffron">Visit Us</button></li>
+              <li><button onClick={() => goLegal('about')} className="hover:text-saffron">About Us</button></li>
               <li><button onClick={() => setView('contact')} className="hover:text-saffron">Contact</button></li>
-              <li><button onClick={() => setView('legal')} className="hover:text-saffron">Legal</button></li>
+              <li><button onClick={() => goLegal('privacy')} className="hover:text-saffron">Legal</button></li>
             </ul>
           </nav>
-          <div>
-            <p className="text-xs tracking-[0.25em] text-black">WHO WE ARE</p>
-            <p className="text-xl leading-snug mt-4">A pure veg kitchen,<br />fresh and made<br />to order.</p>
-          </div>
           <div>
             <p className="text-xs tracking-[0.25em] text-black">CONTACT</p>
             <ul className="mt-4 space-y-3 text-sm text-black">
@@ -274,7 +273,7 @@ export default function App() {
           <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8 lg:items-end justify-between">
             <div className="text-sm text-black leading-relaxed">
               <p>© 2026 · {BRAND.name} · FSSAI Lic. 12715001001061</p>
-              <p className="mt-1"><button onClick={() => setView('legal')} className="underline hover:text-saffron">Privacy Policy</button> • <button onClick={() => setView('legal')} className="underline hover:text-saffron">Terms of Service</button> • <button onClick={() => setView('contact')} className="underline hover:text-saffron">Contact</button></p>
+              <p className="mt-1"><button onClick={() => goLegal('privacy')} className="underline hover:text-saffron">Privacy Policy</button> • <button onClick={() => goLegal('terms')} className="underline hover:text-saffron">Terms of Service</button> • <button onClick={() => goLegal('about')} className="underline hover:text-saffron">About Us</button> • <button onClick={() => setView('contact')} className="underline hover:text-saffron">Contact</button></p>
               <p className="mt-1">Independent demo — not affiliated with Google, Zomato or Swiggy.</p>
             </div>
             <div className="w-full lg:w-[420px]">
