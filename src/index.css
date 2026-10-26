@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #fff8ec;
+  --color-cream2: #fdf1dc;
+  --color-ink: #221a14;
+  --color-saffron: #e8721c;
+  --color-terra: #b4532a;
+  --color-leaf: #2f7d4f;
+}
+
+html { scroll-behavior: smooth; -webkit-tap-highlight-color: transparent; }
+@media (max-width: 767px) {
+  body { overscroll-behavior-y: contain; }
+}
+body { background: #fff8ec; color: #221a14; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+::selection { background: #e8721c; color: #fff; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+.food-card { transition: transform .35s ease, box-shadow .35s ease; }
+@media (hover: hover) {
+  .food-card:hover { transform: translateY(-6px); box-shadow: 0 22px 40px rgba(34,26,20,.16); }
+  .food-card:hover .food-img { transform: scale(1.07); }
+}
+.food-img { transition: transform .6s ease; }
+
+/* Game-style card box: framed, bevelled, glowing on hover (desktop only tilt is in JS). */
+.game-card { border: 2px solid #f5d9b8; box-shadow: 0 10px 24px rgba(34,26,20,.10), inset 0 1px 0 rgba(255,255,255,.9); transition: transform .25s ease, box-shadow .25s ease; }
+.game-card:hover { box-shadow: 0 24px 44px rgba(232,114,28,.28), 0 10px 24px rgba(34,26,20,.12); }
+.game-card--gold { border-color: #f2b705; box-shadow: 0 10px 24px rgba(242,183,5,.28), inset 0 1px 0 rgba(255,255,255,.9); }
+.game-corner { position: absolute; width: 18px; height: 18px; z-index: 20; pointer-events: none; border-color: #e8721c; border-style: solid; }
+.game-corner--tl { top: 6px; left: 6px; border-width: 3px 0 0 3px; border-top-left-radius: 6px; }
+.game-corner--tr { top: 6px; right: 6px; border-width: 3px 3px 0 0; border-top-right-radius: 6px; }
+.game-corner--bl { bottom: 6px; left: 6px; border-width: 0 0 3px 3px; border-bottom-left-radius: 6px; }
+.game-corner--br { bottom: 6px; right: 6px; border-width: 0 3px 3px 0; border-bottom-right-radius: 6px; }
+@media (prefers-reduced-motion: reduce) {
+  .game-card { transition: none; }
+}
