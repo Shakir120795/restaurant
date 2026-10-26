@@ -25,6 +25,17 @@ import { BRAND } from '../config'
  * - Seeks run through a requestAnimationFrame loop with lerp smoothing.
  * - Seeks smaller than 0.04s are skipped to keep mobile browsers from
  *   thrashing on tiny scroll deltas. No CSS filter/blur on the video.
+ *
+ * Mobile fix (Vercel site stuck on phones while PC was smooth):
+ * - Seeks are coalesced: while a seek is still in flight, no new seek is
+ *   issued — mobile decoders queue/drop rapid seeks and freeze.
+ * - Once stuck seeks force Play Mode, it stays in Play Mode for this
+ *   visit instead of snapping back to scrub on the next scroll event
+ *   (that snap-back was the scrub/play oscillation that felt like
+ *   stuttering). The video then plays while the hero is visible and the
+ *   progress bar follows video time.
+ * - Progress state updates are throttled to >=0.01 changes, so the
+ *   component is not re-rendered on every animation frame on phones.
  * - Scrub starts at 2s, not 0s: the first ~2s show another restaurant's
  *   exterior signage, so that part is skipped and the hero shows only the
  *   interior walkthrough.
@@ -37,6 +48,8 @@ export default function ScrollVideoHero({ onBook }: { onBook: () => void }) {
   const targetRef = useRef(0)
   const currentRef = useRef(0)
   const modeRef = useRef<'scrub' | 'play'>('scrub')
+  const playFallbackRef = useRef(false)
+  const lastProgressRef = useRef(-1)
   const [progress, setProgress] = useState(0)
   const [failed, setFailed] = useState(false)
 
@@ -63,6 +76,15 @@ export default function ScrollVideoHero({ onBook }: { onBook: () => void }) {
     let lastLoopTime = performance.now()
     let lastTick = performance.now()
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const isTouch = window.matchMedia('(pointer: coarse)').matches
+    const seekThreshold = isTouch ? 0.08 : 0.04
+    const setProgressThrottled = (p: number) => {
+      const clamped = Math.min(1, Math.max(0, p))
+      if (Math.abs(clamped - lastProgressRef.current) >= 0.01 || clamped === 0 || clamped === 1) {
+        lastProgressRef.current = clamped
+        setProgress(clamped)
+      }
+    }
 
     const prime = () => {
       if (primed) return
@@ -95,8 +117,18 @@ export default function ScrollVideoHero({ onBook }: { onBook: () => void }) {
       const w = wrapRef.current
       if (v && w && v.readyState >= 2 && !Number.isNaN(v.duration) && v.duration > START_TIME) {
         if (modeRef.current === 'play') {
-          // A fresh scroll takes scrub control back from Play Mode.
-          if (performance.now() - lastScrollChange < 500 && Math.abs(targetRef.current - currentRef.current) > 0.05) {
+          // Keep the video-time position in sync so a later scrub
+          // retake (auto-advance path only) never jumps.
+          if (!Number.isNaN(v.duration) && v.duration > START_TIME) {
+            currentRef.current = Math.min(1, Math.max(0, (v.currentTime - START_TIME) / (v.duration - START_TIME)))
+          }
+          // A fresh scroll takes scrub control back from Play Mode —
+          // EXCEPT when Play Mode was entered because seeks kept
+          // getting stuck (mobile decoder). On that device scrub
+          // already proved it cannot keep up, so snapping back on
+          // every scroll event only causes scrub/play oscillation.
+          // The video keeps playing while the hero is visible instead.
+          if (!playFallbackRef.current && performance.now() - lastScrollChange < 500 && Math.abs(targetRef.current - currentRef.current) > 0.05) {
             modeRef.current = 'scrub'
             currentRef.current = targetRef.current
             v.pause()
@@ -112,7 +144,7 @@ export default function ScrollVideoHero({ onBook }: { onBook: () => void }) {
             if (!v.paused && v.currentTime >= v.duration - 0.1) {
               try { v.currentTime = START_TIME } catch { /* ignore */ }
             }
-            setProgress(Math.min(1, Math.max(0, (v.currentTime - START_TIME) / (v.duration - START_TIME))))
+            setProgressThrottled((v.currentTime - START_TIME) / (v.duration - START_TIME))
           }
         } else {
           // No scroll movement while the hero is visible for 3s means
@@ -129,7 +161,10 @@ export default function ScrollVideoHero({ onBook }: { onBook: () => void }) {
           if (reducedMotion) currentRef.current = targetRef.current
           else currentRef.current += (targetRef.current - currentRef.current) * (1 - Math.exp(-dt * 9))
           const t = START_TIME + currentRef.current * (v.duration - START_TIME)
-          if (Math.abs(t - v.currentTime) >= 0.04) {
+          // Coalesce: never issue a new seek while the previous one is
+          // still in flight — on phones a queue of seeks is exactly
+          // what makes the video freeze instead of advancing.
+          if (!pendingSeek && Math.abs(t - v.currentTime) >= seekThreshold) {
             try { v.currentTime = t; pendingSeek = { t, at: performance.now() } } catch { /* seek not ready yet */ }
           }
           // Watchdog: a seek whose frame never lands means this webview
@@ -142,13 +177,14 @@ export default function ScrollVideoHero({ onBook }: { onBook: () => void }) {
               stuck += 1
               if (stuck >= 3) {
                 modeRef.current = 'play'
+                playFallbackRef.current = true
                 pendingSeek = null
               } else {
                 try { v.currentTime = pendingSeek.t; pendingSeek.at = performance.now() } catch { /* ignore */ }
               }
             }
           }
-          setProgress(currentRef.current)
+          setProgressThrottled(currentRef.current)
         }
       }
       raf = requestAnimationFrame(loop)
